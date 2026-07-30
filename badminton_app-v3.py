@@ -609,7 +609,7 @@ with tab_schedule:
 # TAB 2: PAYMENTS & QR CODES (With Multi-Session Debt Consolidation - Requirement 7)
 # ---------------------------------------------------------
 with tab_payment:
-    st.markdown("### 💳 Thanh Toán & Mã QR Động (VietQR)")
+    st.markdown("### 💳 Thanh Toán")
     
     # Let's read bank config
     bank_code = get_config("bank_code")
