@@ -364,7 +364,7 @@ with tab_schedule:
                     start_t = st.selectbox("Từ mấy giờ", TIME_OPTIONS, index=TIME_OPTIONS.index("19:30") if "19:30" in TIME_OPTIONS else 0)
                     end_t = st.selectbox("Đến mấy giờ", TIME_OPTIONS, index=TIME_OPTIONS.index("21:30") if "21:30" in TIME_OPTIONS else 0)
                 with col3:
-                    location = st.text_input("Địa điểm", "Sân Cầu Lông Phúc Long - 26 Lê Văn Lương")
+                    location = st.text_input("Địa điểm", "Sân Cầu Lông Phúc Long - 27 Lê Văn Lương")
                 
                 players_input = st.text_area("Danh sách thành viên đăng ký (Dự kiến)", 
                                              value="Tùng, Nghiệp, Huy, Trường, Mạnh, Hải", 
