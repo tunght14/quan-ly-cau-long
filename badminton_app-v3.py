@@ -337,10 +337,10 @@ else:
 # ---------------------------------------------------------
 # Added "Đồng Bộ & Sao Lưu" as a top-level Tab for extreme convenience
 tab_schedule, tab_payment, tab_stats, tab_sync, tab_config = st.tabs([
-    "📅 Lịch Đánh & Chia Tiền", 
-    "💳 Thanh Toán & Quét QR", 
-    "📊 Thống Kê Tần Suất", 
-    "🔄 Đồng Bộ & Sao Lưu (Mới)",
+    "📅 Lịch Đánh", 
+    "💳 Thanh Toán", 
+    "📊 Thống Kê", 
+    "🔄 Đồng Bộ & Sao Lưu",
     "⚙️ Cấu Hình Hệ Thống"
 ])
 
@@ -354,7 +354,7 @@ with tab_schedule:
     
     # 1. ADMIN ACTIONS: CREATE SESSION (With Selection for Time - Requirement 4)
     if is_admin:
-        with st.expander("➕ Thêm Buổi Đánh Mới (Chỉ Host)", expanded=len(sessions) == 0):
+        with st.expander("➕ Thêm Buổi Đánh Mới", expanded=len(sessions) == 0):
             with st.form("create_session_form"):
                 col1, col2, col3 = st.columns(3)
                 with col1:
