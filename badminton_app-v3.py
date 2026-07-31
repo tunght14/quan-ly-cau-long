@@ -594,9 +594,9 @@ with tab_schedule:
                     new_shuttle_fee = st.number_input("Tiền Cầu (VND):", min_value=0.0, step=5000.0, value=0.0)
                 with col3:
                     new_status = st.selectbox("Trạng thái:", ["Dự kiến", "Đã hoàn thành"])
-                    new_players = st.text_area("Thành viên tham gia (nhập tên cách nhau bằng dấu phẩy):", placeholder="Tùng, Nghiệp, Huy, Trường, Mạnh, Diễm, Hiếu")
+                    new_players = st.text_area("Thành viên tham gia (nhập tên cách nhau bằng dấu phẩy):", placeholder="Tùng, Nghiệp, Huy, Trường, Mạnh, Hải")
                 
-                submit_session = st.form_submit_button("➕ Tạo Lịch Đấu Và Tự Động Chia Tiền", use_container_width=True)
+                submit_session = st.form_submit_button("➕ Tạo Lịch Đấu", use_container_width=True)
                 
                 if submit_session:
                     if not new_courts:
@@ -742,7 +742,7 @@ with tab_schedule:
                         with col_se3:
                             edit_status = st.selectbox("Cập nhật Trạng thái:", ["Dự kiến", "Đã hoàn thành"], index=0 if s_status == "Dự kiến" else 1, key=f"es_status_{s_id}")
                             
-                        submit_bulk_edit = st.form_submit_button("💾 XÁC NHẬN CẬP NHẬT TOÀN BỘ BUỔI ĐÁNH", use_container_width=True)
+                        submit_bulk_edit = st.form_submit_button("💾 XÁC NHẬN CẬP NHẬT", use_container_width=True)
                         
                         if submit_bulk_edit:
                             conn = sqlite3.connect(DB_FILE)
@@ -783,8 +783,8 @@ with tab_payment:
     
     # 1. BẢNG TỔNG HỢP CÔNG NỢ
     if active_debts:
-        st.markdown("#### 📊 BẢNG TỔNG HỢP CÔNG NỢ")
-        st.write("Danh sách các thành viên chưa thanh toán tiền cầu, sân và nước:")
+        st.markdown("#### 📊 BẢNG TỔNG HỢP")
+        st.write("Danh sách các thành viên cần thanh toán:")
         
         summary_rows = []
         for player, info in active_debts.items():
@@ -792,14 +792,14 @@ with tab_payment:
             formatted_dates = ", ".join([d[5:].replace('-', '/') for d in dates_list])
             summary_rows.append({
                 "Thành Viên": player,
-                "Số Buổi Chưa Trả": f"{len(info['unpaid_sessions'])} buổi",
+                "Số Buổi Cần thanh toán": f"{len(info['unpaid_sessions'])} buổi",
                 "Chi Tiết Các Buổi": formatted_dates,
-                "Tổng Tiền Nợ": f"{info['total_debt']:,.0f} đ"
+                "Tổng Tiền cần thanh toán": f"{info['total_debt']:,.0f} đ"
             })
         df_summary = pd.DataFrame(summary_rows)
         st.dataframe(df_summary, use_container_width=True, hide_index=True)
     else:
-        st.success("🎉 Tuyệt vời! Hiện tại không có thành viên nào nợ tiền.")
+        st.success("🎉 Tuyệt vời! Hiện tại tất cả thành viên đã thanh toán.")
         
     st.write("---")
     
@@ -832,7 +832,7 @@ with tab_payment:
             bank_acc = get_config("bank_acc", "")
             bank_owner = get_config("bank_owner", "")
             
-            if pay_option == "💵 Thanh toán tất cả các buổi nợ (Thanh toán gộp)":
+            if pay_option == "💵 Thanh toán tất cả các buổi chưa thanh toán":
                 total_amount = player_debt['total_debt']
                 unpaid_sessions_list = player_debt['unpaid_sessions']
                 dates_str = ", ".join([s['date'][5:].replace('-', '/') for s in unpaid_sessions_list])
@@ -969,15 +969,15 @@ with tab_stats:
     conn.close()
     
     if players_completed:
-        st.markdown("#### 🏆 BẢNG VINH DANH THÀNH VIÊN")
-        st.write("Bảng xếp hạng dựa trên số buổi thực tế tham gia của các thành viên (Chỉ tính các buổi đã hoàn thành):")
+        st.markdown("#### 🏆 CHÍ TÔN BẢNG")
+        st.write("Bảng xếp hạng dựa trên số buổi thực tế tham gia của các thành viên:")
         
         leaderboard_data = []
         for idx, p in enumerate(players_completed):
             rank = idx + 1
-            if rank == 1: medal = "🥇 Hạng 1 (Cựu Binh Kim Cương)"
-            elif rank == 2: medal = "🥈 Hạng 2 (Chiến Binh Bạc)"
-            elif rank == 3: medal = "🥉 Hạng 3 (Tay Vợt Đồng)"
+            if rank == 1: medal = "🥇 Hạng 1 (Nhất Đại Đập Cầu)"
+            elif rank == 2: medal = "🥈 Hạng 2 (Nhị Vị Cài Lưới)"
+            elif rank == 3: medal = "🥉 Hạng 3 (Tam Bá Phông Cầu)"
             else: medal = f"🏅 Hạng {rank}"
             
             leaderboard_data.append({
@@ -991,7 +991,7 @@ with tab_stats:
         
         # 2. SELECTION FILTER FOR CHART (Filters casual players)
         st.write("---")
-        st.markdown("#### 🎯 BIỂU ĐỒ TẦN SUẤT THAM GIA")
+        st.markdown("#### 🎯 TIỀM LONG BẢNG")
         st.write("Chọn các thành viên bạn muốn xem biểu đồ (mặc định chọn tất cả):")
         
         all_completed_players = [p['player_name'] for p in players_completed]
@@ -1012,7 +1012,7 @@ with tab_stats:
             bars = ax.bar(names, counts, color='#1E3A8A', edgecolor='#F59E0B', linewidth=1.2)
             
             ax.set_ylabel("Số Buổi Đã Tham Gia", fontsize=11, fontweight='bold', color='#1E3A8A')
-            ax.set_title("Số Buổi Đi Đánh Thực Tế (Không tính Dự kiến)", fontsize=13, fontweight='bold', color='#1E3A8A')
+            ax.set_title("Số Buổi Đi Đánh Thực Tế", fontsize=13, fontweight='bold', color='#1E3A8A')
             plt.xticks(rotation=45, ha='right')
             ax.grid(axis='y', linestyle='--', alpha=0.7)
             
