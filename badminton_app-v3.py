@@ -648,7 +648,8 @@ with tab_schedule:
                         for i_p, p_row in players_df.iterrows():
                             p_id = p_row['id']
                             p_name = p_row['player_name']
-                            p_coeff = float(p_row['coefficient'] or 1.0)
+                            #p_coeff = float(p_row['coefficient'] or 1.0)
+                            p_coeff = clean_coefficient(p_row['coefficient']) 
                             p_water_fee = float(p_row['water_fee'] or 0.0)
                             p_water_detail = p_row['water_detail']
                             p_status = p_row['payment_status']
@@ -1008,3 +1009,32 @@ with tab_config:
                     set_config("admin_password", new_pass_input)
                     st.success("Đổi mật khẩu thành công! Vui lòng dùng mật khẩu mới ở Sidebar.")
                     st.rerun()
+
+def clean_coefficient(p_coeff):
+    try:
+        if p_coeff is None:
+            return 1.0
+        # Nếu là chuỗi (đọc trực tiếp từ Google Sheets hoặc DB)
+        if isinstance(p_coeff, str):
+            p_coeff = p_coeff.strip()
+            if not p_coeff:
+                return 1.0
+            # Chuyển đổi dấu phẩy tiếng Việt thành dấu chấm thập phân tiếng Anh
+            if ',' in p_coeff and '.' not in p_coeff:
+                p_coeff = p_coeff.replace(',', '.')
+            p_coeff_clean = float(p_coeff)
+        else:
+            p_coeff_clean = float(p_coeff)
+        
+        # CHỐNG LỖI LỆCH HỆ SỐ (Ví dụ: 0,75 bị biến thành 75.0; 0,5 thành 5.0)
+        # Hệ số thực tế chỉ dao động từ 0.0 đến 3.0.
+        # Nếu phát hiện hệ số lớn hơn hoặc bằng 5.0, chắc chắn dữ liệu đang bị phóng đại do mất dấu thập phân
+        if p_coeff_clean >= 5.0:
+            if p_coeff_clean >= 10.0:
+                p_coeff_clean = p_coeff_clean / 100.0  # 75.0 -> 0.75, 83.0 -> 0.83
+            else:
+                p_coeff_clean = p_coeff_clean / 10.0   # 5.0 -> 0.5
+                
+        return p_coeff_clean
+    except Exception:
+        return 1.0
