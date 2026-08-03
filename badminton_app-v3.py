@@ -892,7 +892,7 @@ with tab_stats:
         
         with col_rank1:
             st.markdown("#### 🥇 CON ONG CHĂM CHỈ")
-            df_vinh_danh = df_stats.sort_values(by=['Số buổi tham gia', 'Tổng chi phí'], ascending=[False, False]).head(20).reset_index(drop=True)
+            df_vinh_danh = df_stats.sort_values(by=['Số buổi tham gia', 'Tổng tiền đã tham gia'], ascending=[False, False]).head(20).reset_index(drop=True)
             df_vinh_danh.insert(0, 'Hạng', range(1, len(df_vinh_danh) + 1))
             df_vinh_danh['Hạng'] = df_vinh_danh['Hạng'].apply(get_rank_emoji)
             df_vinh_danh['Tổng tiền đã tham gia'] = df_vinh_danh['Tổng tiền đã tham gia'].map(lambda x: f"{x:,.0f} đ")
@@ -900,7 +900,7 @@ with tab_stats:
             
         with col_rank2:
             st.markdown("#### 🐉TIỀM LONG BẢNG")
-            df_tiem_long = df_stats.sort_values(by=['Tổng chi phí', 'Số buổi tham gia'], ascending=[False, False]).head(20).reset_index(drop=True)
+            df_tiem_long = df_stats.sort_values(by=['Tổng tiền đã tham gia', 'Số buổi tham gia'], ascending=[False, False]).head(20).reset_index(drop=True)
             df_tiem_long.insert(0, 'Hạng', range(1, len(df_tiem_long) + 1))
             df_tiem_long['Hạng'] = df_tiem_long['Hạng'].apply(get_rank_emoji)
             df_tiem_long['Tổng tiền đã tham gia'] = df_tiem_long['Tổng tiền đã tham gia'].map(lambda x: f"{x:,.0f} đ")
