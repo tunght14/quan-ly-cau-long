@@ -498,7 +498,7 @@ with st.sidebar:
 # MAIN APP INTERFACE STYLE
 # ---------------------------------------------------------
 st.markdown('<div class="main-title">🏸 SUNDAY SMASH CLUB 🏸</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Đam mê - Sòng phẳng - Đoàn kết</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Đam mê - Tài năng - Đoàn kết</div>', unsafe_allow_html=True)
 
 if auto_sync_msg:
     st.info(f"💡 {auto_sync_msg}")
@@ -707,7 +707,7 @@ with tab_schedule:
 # TAB 2: PAYMENTS & DETAILED DEBT ACCUMULATION (Optimized)
 # ---------------------------------------------------------
 with tab_payment:
-    st.markdown("### 💳 BẢNG TỔNG HỢP CÔNG NỢ THÀNH VIÊN")
+    st.markdown("### 💳 BẢNG TỔNG HỢP THÀNH VIÊN CẦN THANH TOÁN")
     
     # 1. Outstanding Debts Summary Table
     debts = get_outstanding_debts()
@@ -716,24 +716,24 @@ with tab_payment:
         for name, info in debts.items():
             summary_rows.append({
                 'Thành viên': name,
-                'Số buổi còn nợ': info['session_count'],
-                'Danh sách ngày nợ': ", ".join(sorted(info['session_dates'])),
-                'Tổng nợ dồn (đ)': info['total_amount']
+                'Số buổi cần thanh toán': info['session_count'],
+                'Danh sách ngày cần thanh toán': ", ".join(sorted(info['session_dates'])),
+                'Tổng số tiền cần thanh toán': info['total_amount']
             })
         df_summary = pd.DataFrame(summary_rows)
         df_summary = df_summary.sort_values(by='Tổng nợ dồn (đ)', ascending=False)
         df_summary['Tổng nợ dồn (đ)'] = df_summary['Tổng nợ dồn (đ)'].map(lambda x: f"{x:,.0f} đ")
         st.dataframe(df_summary, use_container_width=True, hide_index=True)
     else:
-        st.success("🎉 Tuyệt vời! Hiện tại không có ai nợ tiền đánh cầu.")
+        st.success("🎉 Tuyệt vời! Hiện tại không có ai cần thanh toán.")
 
     st.markdown("---")
     st.markdown("### 📲 THÀNH VIÊN QUÉT MÃ QR THANH TOÁN")
     
     # Bank accounts configuration
-    bank_id = get_config("bank_id", "MBBank")
-    account_no = get_config("account_no", "")
-    account_name = get_config("account_name", "")
+    bank_id = get_config("bank_id", "TECHCOMBANK")
+    account_no = get_config("account_no", "863366668888")
+    account_name = get_config("account_name", "HOANG THANH TUNG")
     
     if not account_no:
         st.warning("Cấu hình tài khoản ngân hàng chưa hoàn chỉnh trong tab Cấu hình hệ thống.")
@@ -748,12 +748,12 @@ with tab_payment:
             total_debt_amount = player_debt_info['total_amount']
             
             pay_type = st.radio("Lựa chọn hình thức thanh toán:", [
-                "💵 Thanh toán tất cả các buổi nợ (Thanh toán gộp)",
+                "💵 Thanh toán tất cả các buổi còn lại",
                 "📄 Thanh toán từng buổi lẻ"
             ])
             
-            if pay_type == "💵 Thanh toán tất cả các buổi nợ (Thanh toán gộp)":
-                st.markdown(f"#### 💰 Tổng số tiền nợ gộp: **{total_debt_amount:,.0f} đ**")
+            if pay_type == "💵 Thanh toán tất cả các buổi còn lại":
+                st.markdown(f"#### 💰 Tổng số tiền cần thanh toán: **{total_debt_amount:,.0f} đ**")
                 st.write(f"Gồm các buổi ngày: {', '.join(player_debt_info['session_dates'])}")
                 
                 qr_content = f"{selected_player} thanh toan gop no"
@@ -835,7 +835,7 @@ with tab_payment:
 # TAB 3: GRAPH STATISTICS & LEADERBOARD (Only Completed)
 # ---------------------------------------------------------
 with tab_stats:
-    st.markdown("### 🏆 BẢNG VINH DANH & TIỀM LONG (CHỈ TÍNH BUỔI ĐÃ HOÀN THÀNH)")
+    st.markdown("### 🏆 BẢNG VINH DANH & TIỀM LONG")
     
     # Fetch all completed sessions and players
     conn = get_db_connection()
@@ -891,16 +891,16 @@ with tab_stats:
         col_rank1, col_rank2 = st.columns(2)
         
         with col_rank1:
-            st.markdown("#### 🥇 BẢNG VINH DANH THÀNH VIÊN (TOP 20)")
-            df_vinh_danh = df_stats.sort_values(by=['Số buổi tham gia', 'Tổng tiền đã tham gia'], ascending=[False, False]).head(20).reset_index(drop=True)
+            st.markdown("#### 🥇 CON ONG CHĂM CHỈ")
+            df_vinh_danh = df_stats.sort_values(by=['Số buổi tham gia', 'Tổng chi phí'], ascending=[False, False]).head(20).reset_index(drop=True)
             df_vinh_danh.insert(0, 'Hạng', range(1, len(df_vinh_danh) + 1))
             df_vinh_danh['Hạng'] = df_vinh_danh['Hạng'].apply(get_rank_emoji)
             df_vinh_danh['Tổng tiền đã tham gia'] = df_vinh_danh['Tổng tiền đã tham gia'].map(lambda x: f"{x:,.0f} đ")
             st.dataframe(df_vinh_danh, use_container_width=True, hide_index=True)
             
         with col_rank2:
-            st.markdown("#### 🐉 BẢNG TIỀM LONG - CHĂM CHỈ ĐÓNG GÓP (TOP 20)")
-            df_tiem_long = df_stats.sort_values(by=['Tổng tiền đã tham gia', 'Số buổi tham gia'], ascending=[False, False]).head(20).reset_index(drop=True)
+            st.markdown("#### 🐉TIỀM LONG BẢNG")
+            df_tiem_long = df_stats.sort_values(by=['Tổng chi phí', 'Số buổi tham gia'], ascending=[False, False]).head(20).reset_index(drop=True)
             df_tiem_long.insert(0, 'Hạng', range(1, len(df_tiem_long) + 1))
             df_tiem_long['Hạng'] = df_tiem_long['Hạng'].apply(get_rank_emoji)
             df_tiem_long['Tổng tiền đã tham gia'] = df_tiem_long['Tổng tiền đã tham gia'].map(lambda x: f"{x:,.0f} đ")
@@ -948,12 +948,12 @@ with tab_config:
     with col_cfg1:
         st.markdown("#### 🏦 CẤU HÌNH TÀI KHOẢN NGÂN HÀNG (Nhận Chuyển Khoản)")
         
-        cur_bank = get_config("bank_id", "MBBank")
-        cur_acc = get_config("account_no", "")
-        cur_name = get_config("account_name", "")
+        cur_bank = get_config("bank_id", "TECHCOMBANK")
+        cur_acc = get_config("account_no", "863366668888")
+        cur_name = get_config("account_name", "HOANG THANH TUNG")
         
         with st.form("bank_config_form"):
-            new_bank = st.text_input("Tên ngân hàng viết tắt (e.g. MBBank, Vietcombank, Techcombank):", value=cur_bank)
+            new_bank = st.text_input("Tên ngân hàng:", value=cur_bank)
             new_acc = st.text_input("Số tài khoản:", value=cur_acc)
             new_name = st.text_input("Tên chủ tài khoản (Không dấu):", value=cur_name)
             
