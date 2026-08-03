@@ -657,7 +657,31 @@ with tab_schedule:
                             with col_p1:
                                 st.write(f"**{p_name}**")
                             with col_p2:
-                                coeff_val = st.number_input(f"Hệ số", min_value=0.0, max_value=5.0, step=0.1, value=p_coeff, key=f"coeff_{p_id}")
+                                #coeff_val = st.number_input(f"Hệ số", min_value=0.0, max_value=5.0, step=0.1, value=p_coeff, key=f"coeff_{p_id}")
+                                try:
+                                    if isinstance(p_coeff, str):
+                                        p_coeff_clean = float(p_coeff.replace(',', '.'))
+                                    else:
+                                        p_coeff_clean = float(p_coeff)
+                                except Exception:
+                                    p_coeff_clean = 1.0  # Giá trị mặc định nếu dữ liệu bị trống hoặc lỗi
+
+                                # 2. Khống chế giới hạn an toàn để tránh lỗi StreamlitValueAboveMaxError
+                                # Nếu do lệch cột dẫn đến hệ số bị gán nhầm bằng tiền nước (8000, 16000...), ta đưa về mặc định 1.0
+                                if p_coeff_clean > 5.0 or p_coeff_clean < 0.0:
+                                    p_coeff_clean = 1.0
+                                else:
+                                    p_coeff_clean = float(p_coeff_clean)
+
+                                # 3. Đưa giá trị đã được làm sạch vào ô nhập liệu
+                                coeff_val = st.number_input(
+                                    "Hệ số", 
+                                    min_value=0.0, 
+                                    max_value=5.0, 
+                                    step=0.1, 
+                                    value=p_coeff_clean, 
+                                    key=f"coeff_{p_id}"
+                                )
                             with col_p3:
                                 water_val = st.number_input(f"Tiền nước", min_value=0.0, step=1000.0, value=p_water_fee, key=f"water_{p_id}")
                             with col_p4:
