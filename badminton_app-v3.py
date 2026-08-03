@@ -721,8 +721,8 @@ with tab_payment:
                 'Tổng số tiền cần thanh toán': info['total_amount']
             })
         df_summary = pd.DataFrame(summary_rows)
-        df_summary = df_summary.sort_values(by='Tổng nợ dồn (đ)', ascending=False)
-        df_summary['Tổng nợ dồn (đ)'] = df_summary['Tổng nợ dồn (đ)'].map(lambda x: f"{x:,.0f} đ")
+        df_summary = df_summary.sort_values(by='Tổng số tiền cần thanh toán', ascending=False)
+        df_summary['Tổng số tiền cần thanh toán'] = df_summary['Tổng số tiền cần thanh toán'].map(lambda x: f"{x:,.0f} đ")
         st.dataframe(df_summary, use_container_width=True, hide_index=True)
     else:
         st.success("🎉 Tuyệt vời! Hiện tại không có ai cần thanh toán.")
