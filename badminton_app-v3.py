@@ -680,7 +680,8 @@ with tab_schedule:
                                     min_value=0.0, 
                                     max_value=5.0, 
                                     step=0.1, 
-                                    value=p_coeff_clean, 
+                                    value=clean_coefficient(p_coeff),
+                                    #value=p_coeff_clean, 
                                     key=f"coeff_{p_id}"
                                 )
                             with col_p3:
