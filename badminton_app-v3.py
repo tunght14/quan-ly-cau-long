@@ -837,7 +837,7 @@ with tab_payment:
 ### TAB 3: GRAPH STATISTICS & LEADERBOARD (Only Completed)
 ### ---------------------------------------------------------
 with tab_stats:
-    st.markdown("### 🏆 BẢNG VINH DANH & TIỀM LONG (Chỉ tính buổi Đã hoàn thành)")
+    st.markdown("### 🏆 BẢNG VINH DANH")
     
     conn = get_db_connection()
     df_sessions = pd.read_sql_query("SELECT * FROM sessions WHERE status = 'Đã hoàn thành'", conn)
@@ -882,7 +882,7 @@ with tab_stats:
         
         # 1. BẢNG VINH DANH (Số buổi tham gia, tối đa 20 người)
         with col_leaderboard:
-            st.markdown("#### 🥇 BẢNG VINH DANH (Số buổi tham gia - Top 20)")
+            st.markdown("#### 🥇 CHÍ TÔN BẢNG")
             df_vd = df_merged.groupby("player_name").size().reset_index(name="Số buổi tham gia")
             df_vd = df_vd.sort_values(by="Số buổi tham gia", ascending=False).head(20).reset_index(drop=True)
             df_vd.index += 1
@@ -893,7 +893,7 @@ with tab_stats:
             
         # 2. BẢNG TIỀM LONG (Tổng tiền đã đóng, tối đa 20 người)
         with col_tiemlong:
-            st.markdown("#### 🐉 BẢNG TIỀM LONG (Tổng chi phí đã đóng - Top 20)")
+            st.markdown("#### 🐉 TIỀM LONG BẢNG")
             df_tl = df_merged.groupby("player_name")['player_total_share'].sum().reset_index(name="Tổng tiền đã đóng")
             df_tl = df_tl.sort_values(by="Tổng tiền đã đóng", ascending=False).head(20).reset_index(drop=True)
             df_tl.index += 1
