@@ -729,7 +729,7 @@ with tab_payment:
     df_all_debts = get_outstanding_debts()
     
     if df_all_debts.empty:
-        st.success("🎉 Thật tuyệt vời! Không ai còn nợ tiền.")
+        st.success("🎉 Thật tuyệt vời! Tất cả thành viên đều đã thanh toán.")
     else:
         # Group by player to show total accumulated debts
         df_summary = df_all_debts.groupby("player_name").agg(
