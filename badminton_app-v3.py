@@ -6,79 +6,6 @@ import datetime
 from urllib.parse import quote
 
 # ---------------------------------------------------------
-# ROBUST VIETNAMESE DECIMAL & CURRENCY PARSERS
-# ---------------------------------------------------------
-def safe_float(val, default=0.0):
-    if val is None or val == '':
-        return default
-    if isinstance(val, (int, float)):
-        return float(val)
-    
-    s = str(val).strip()
-    if not s:
-        return default
-    
-    if ',' in s and '.' in s:
-        if s.rfind(',') > s.rfind('.'):
-            s = s.replace('.', '').replace(',', '.')
-        else:
-            s = s.replace(',', '')
-    elif ',' in s:
-        parts = s.split(',')
-        if len(parts[-1]) == 3 and len(parts) > 1 and float(parts[0].replace('.', '').strip() or 0) > 0:
-            s = s.replace(',', '')
-        else:
-            s = s.replace(',', '.')
-    elif '.' in s:
-        parts = s.split('.')
-        if len(parts[-1]) == 3 and len(parts) > 1:
-            s = s.replace('.', '')
-        else:
-            pass
-            
-    try:
-        return float(s)
-    except ValueError:
-        return default
-
-def clean_coefficient(p_coeff):
-    val = safe_float(p_coeff, default=1.0)
-    if val >= 5.0:
-        if val >= 10.0:
-            return val / 100.0
-        else:
-            return val / 10.0
-    return val
-
-def format_for_sheets(val):
-    if val is None or val == '':
-        return ''
-    try:
-        f_val = float(val)
-        if f_val.is_integer():
-            return str(int(f_val))
-        return str(f_val).replace('.', ',')
-    except Exception:
-        return str(val)
-
-def sanitize_database_coefficients():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        players = cursor.execute("SELECT id, coefficient FROM session_players").fetchall()
-        for p in players:
-            p_id = p[0]
-            p_coeff = p[1]
-            cleaned = clean_coefficient(p_coeff)
-            if cleaned != p_coeff:
-                cursor.execute("UPDATE session_players SET coefficient = ? WHERE id = ?", (cleaned, p_id))
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        pass
-
-
-# ---------------------------------------------------------
 # CONSTANTS & CONFIG
 # ---------------------------------------------------------
 DB_FILE = "badminton.db"
@@ -148,7 +75,6 @@ def init_db():
     conn.close()
 
 init_db()
-sanitize_database_coefficients()
 
 # ---------------------------------------------------------
 # DATABASE UTILITIES
@@ -264,16 +190,6 @@ def sync_to_google_sheets():
         sessions_df = sessions_df.fillna('')
         players_df = players_df.fillna('')
         
-        # Format columns appropriately using format_for_sheets before astype(str)
-        if not sessions_df.empty:
-            for col in ['total_court_fee', 'total_shuttle_fee']:
-                if col in sessions_df.columns:
-                    sessions_df[col] = sessions_df[col].apply(format_for_sheets)
-        if not players_df.empty:
-            for col in ['coefficient', 'water_fee']:
-                if col in players_df.columns:
-                    players_df[col] = players_df[col].apply(format_for_sheets)
-                    
         # Convert all to strings or safe numbers to avoid GSpread upload issues
         for col in sessions_df.columns:
             sessions_df[col] = sessions_df[col].astype(str)
@@ -332,8 +248,8 @@ def sync_from_google_sheets():
                 row.get('id'), row.get('date'), str(row.get('court_no')), row.get('location'),
                 row.get('start_time'), row.get('end_time'), row.get('status'),
                 row.get('players_text', ''),
-                safe_float(row.get('total_court_fee', 0.0)),
-                safe_float(row.get('total_shuttle_fee', 0.0))
+                float(row.get('total_court_fee', 0) if row.get('total_court_fee') != '' else 0),
+                float(row.get('total_shuttle_fee', 0) if row.get('total_shuttle_fee') != '' else 0)
             ))
             
         # Insert players
@@ -343,8 +259,8 @@ def sync_from_google_sheets():
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
                 row.get('id'), row.get('session_id'), str(row.get('player_name')),
-                clean_coefficient(row.get('coefficient')),
-                safe_float(row.get('water_fee', 0.0)),
+                float(row.get('coefficient', 1.0) if row.get('coefficient') != '' else 1.0),
+                float(row.get('water_fee', 0.0) if row.get('water_fee') != '' else 0.0),
                 str(row.get('water_detail', '')),
                 str(row.get('payment_status', 'Chưa thanh toán'))
             ))
@@ -358,6 +274,75 @@ def sync_from_google_sheets():
         return True, "Đã tải dữ liệu từ Google Sheets về Web thành công!"
     except Exception as e:
         return False, f"Lỗi khôi phục: {str(e)}"
+
+
+# ---------------------------------------------------------
+# LEADERBOARD CALCULATIONS (Vinh Danh & Tiềm Long - Top 20)
+# ---------------------------------------------------------
+def calculate_leaderboards():
+    vinh_danh_df = pd.DataFrame()
+    tiem_long_df = pd.DataFrame()
+    
+    try:
+        conn = get_db_connection()
+        sessions_completed = conn.execute("SELECT * FROM sessions WHERE status = 'Đã hoàn thành'").fetchall()
+        
+        player_matches = {} # player_name -> count
+        player_costs = {} # player_name -> total_cost
+        
+        for sess in sessions_completed:
+            sess_id = sess['id']
+            s_court_fee = safe_float(sess['total_court_fee'])
+            s_shuttle_fee = safe_float(sess['total_shuttle_fee'])
+            total_session_fee = s_court_fee + s_shuttle_fee
+            
+            players = conn.execute("SELECT * FROM session_players WHERE session_id = ?", (sess_id,)).fetchall()
+            
+            # Calculate total coefficient for this session
+            total_coef = sum(safe_float(p['coefficient']) for p in players)
+            unit_fee = total_session_fee / total_coef if total_coef > 0 else 0.0
+            
+            for p in players:
+                name = p['player_name']
+                coeff = clean_coefficient(p['coefficient'])
+                water = safe_float(p['water_fee'])
+                
+                p_share = unit_fee * coeff
+                p_total = p_share + water
+                
+                player_matches[name] = player_matches.get(name, 0) + 1
+                player_costs[name] = player_costs.get(name, 0.0) + p_total
+                
+        conn.close()
+        
+        # 1. Bảng Vinh Danh (Xếp hạng theo số buổi tham gia)
+        vinh_danh_list = []
+        for name, count in player_matches.items():
+            vinh_danh_list.append({
+                "Thành viên": name,
+                "Số buổi tham gia": count
+            })
+        vinh_danh_df = pd.DataFrame(vinh_danh_list)
+        if not vinh_danh_df.empty:
+            vinh_danh_df = vinh_danh_df.sort_values(by="Số buổi tham gia", ascending=False).head(20).reset_index(drop=True)
+            vinh_danh_df.index = vinh_danh_df.index + 1
+            
+        # 2. Bảng Tiềm Long (Xếp hạng theo tổng tiền đóng góp)
+        tiem_long_list = []
+        for name, cost in player_costs.items():
+            tiem_long_list.append({
+                "Thành viên": name,
+                "Tổng chi phí đã đóng (đ)": round(cost)
+            })
+        tiem_long_df = pd.DataFrame(tiem_long_list)
+        if not tiem_long_df.empty:
+            tiem_long_df = tiem_long_df.sort_values(by="Tổng chi phí đã đóng (đ)", ascending=False).head(20).reset_index(drop=True)
+            tiem_long_df.index = tiem_long_df.index + 1
+            
+    except Exception as e:
+        pass
+        
+    return vinh_danh_df, tiem_long_df
 
 # ---------------------------------------------------------
 # TIME OPTION HELPER
@@ -489,10 +474,13 @@ with tab_schedule:
             
             player_names = [p['player_name'] for p in players]
             
-            # Badge for status
-            status_color = "orange" if sess['status'] == 'Dự kiến' else "green"
-            st.markdown(f"### 🏸 Buổi đánh ngày {sess['date']} tại {sess['location']} ({sess['start_time']} - {sess['end_time']}) "
-                        f" <span style='background-color:{status_color};color:white;padding:3px 8px;border-radius:5px;font-size:14px;'>{sess['status']}</span>", unsafe_allow_html=True)
+            # Badge for status (Yellow for Dự kiến, Green for Hoàn thành at the beginning - Requirement 1)
+            if sess['status'] == 'Dự kiến':
+                status_tag = "<span style='background-color:#FFC107;color:black;padding:3px 8px;border-radius:5px;font-size:14px;font-weight:bold;margin-right:8px;'>🟡 DỰ KIẾN</span>"
+            else:
+                status_tag = "<span style='background-color:#28A745;color:white;padding:3px 8px;border-radius:5px;font-size:14px;font-weight:bold;margin-right:8px;'>🟢 HOÀN THÀNH</span>"
+            
+            st.markdown(f"### {status_tag} 📅 Buổi đánh ngày {sess['date']} tại {sess['location']} ({sess['start_time']} - {sess['end_time']})", unsafe_allow_html=True)
             
             st.markdown(f"**Sân số:** {sess['court_no']} | **Người tham gia ({len(players)}):** {', '.join(player_names)}")
             
@@ -567,13 +555,13 @@ with tab_schedule:
                             current_players = conn.execute("SELECT * FROM session_players WHERE session_id = ?", (sess_id,)).fetchall()
                             conn.close()
                             
-                            for pl in current_players:
+                            for player_idx, pl in enumerate(current_players):
                                 p_id = pl['id']
                                 st.markdown(f"**👤 Người chơi: {pl['player_name']}**")
                                 col_p1, col_p2, col_p3, col_p4 = st.columns([1.5, 3.5, 1.5, 1.5])
                                 
                                 with col_p1:
-                                    coeff = st.number_input("Hệ số chia tiền", min_value=0.0, max_value=2.0, value=clean_coefficient(pl['coefficient']), step=0.05, key=f"coeff_{sess_id}_{p_id}")
+                                    coeff = st.number_input("Hệ số chia tiền", min_value=0.0, max_value=2.0, value=float(pl['coefficient']), step=0.05, key=f"coeff_{sess_id}_{p_id}_{player_idx}")
                                 
                                 with col_p2:
                                     # Water checkboxes and quantity
@@ -594,7 +582,7 @@ with tab_schedule:
                                             qty = old_detail.get(item_name, 0)
                                             # Compact label
                                             short_name = item_name.replace("Nước suối ", "").replace(" dâu", "")
-                                            new_qty = st.number_input(f"{short_name} ({item_price:,}đ)", min_value=0, max_value=10, value=int(qty), key=f"water_{sess_id}_{p_id}_{item_name}")
+                                            new_qty = st.number_input(f"{short_name} ({item_price:,}đ)", min_value=0, max_value=10, value=int(qty), key=f"water_{sess_id}_{p_id}_{player_idx}_{idx}_{item_name}")
                                             if new_qty > 0:
                                                 selected_water.append((item_name, new_qty, item_price))
                                             
@@ -610,7 +598,7 @@ with tab_schedule:
                                     # Changed texts from "Đã trả / Chưa trả" to "Đã thanh toán / Chưa thanh toán" (Requirement 3)
                                     pay_status = st.selectbox("Trạng thái", ["Chưa thanh toán", "Đã thanh toán"], 
                                                               index=0 if pl['payment_status'] == 'Chưa thanh toán' else 1, 
-                                                              key=f"pay_status_{sess_id}_{p_id}")
+                                                              key=f"pay_status_{sess_id}_{p_id}_{player_idx}")
                                     
                                 updated_players_data.append({
                                     "id": p_id,
@@ -791,7 +779,11 @@ with tab_payment:
                 # VietQR Dynamic QR URL
                 encoded_owner = quote(bank_owner)
                 encoded_desc = quote(pay_description)
-                qr_url = f"https://img.vietqr.io/image/{bank_code}-{bank_acc}-compact.png?amount={int(final_pay_amount)}&addInfo={encoded_desc}&accountName={encoded_owner}"
+                # Clean bank_code by removing spaces, commas and special characters
+                clean_bank_code = bank_code.replace(",", "").replace(" ", "").upper()
+                if clean_bank_code == "TECHCOMBANK":
+                    clean_bank_code = "TCB"
+                qr_url = f"https://img.vietqr.io/image/{clean_bank_code}-{bank_acc}-compact.png?amount={int(final_pay_amount)}&addInfo={encoded_desc}&accountName={encoded_owner}" 
                 
                 col_qr, col_qr_desc = st.columns([1, 1.5])
                 with col_qr:
@@ -823,48 +815,55 @@ with tab_payment:
 # TAB 3: STATS CHART (With Filter - Requirement 5)
 # ---------------------------------------------------------
 with tab_stats:
-    st.markdown("### 📊 Thống Kê Số Buổi Đi Đánh Cầu")
+    st.markdown("### 📊 Thống Kê Hoạt Động & Vinh Danh")
     
-    conn = get_db_connection()
-    # Get play count of all completed sessions
-    play_counts = conn.execute("""
-        SELECT sp.player_name, COUNT(sp.session_id) as matches_played
-        FROM session_players sp
-        JOIN sessions s ON sp.session_id = s.id
-        WHERE s.status = 'Đã hoàn thành'
-        GROUP BY sp.player_name
-        ORDER BY matches_played DESC
-    """).fetchall()
-    conn.close()
+    vinh_danh_df, tiem_long_df = calculate_leaderboards()
     
-    if not play_counts:
-        st.info("Chưa có trận đấu đã hoàn thành để thống kê biểu đồ.")
+    if vinh_danh_df.empty and tiem_long_df.empty:
+        st.info("Chưa có trận đấu nào ở trạng thái 'Đã hoàn thành' để thống kê số liệu!")
     else:
-        # Convert to pandas
-        stats_df = pd.DataFrame([dict(row) for row in play_counts])
+        col_vd, col_tl = st.columns(2)
         
-        # 5. Filter option (Cho chọn lọc người chơi để bỏ bớt vãng lai)
-        all_players_list = stats_df['player_name'].tolist()
-        
-        # Filter: by default select those who played more than once, but allow selecting everyone
-        selected_players_for_chart = st.multiselect(
-            "🎯 Chọn các thành viên muốn hiển thị trên biểu đồ (Hủy chọn các thành viên vãng lai ít tham gia):",
-            options=all_players_list,
-            default=all_players_list
-        )
-        
-        if selected_players_for_chart:
-            filtered_df = stats_df[stats_df['player_name'].isin(selected_players_for_chart)]
-            
-            # Simple Column Chart
-            st.write("📈 **Biểu đồ số trận đã tham gia:**")
-            st.bar_chart(filtered_df.set_index('player_name'))
-            
-            # Show table below
-            st.markdown("#### Bảng tần suất chơi:")
-            st.table(filtered_df.rename(columns={"player_name": "Tên Người Chơi", "matches_played": "Số Buổi Tham Gia"}))
-        else:
-            st.warning("Vui lòng chọn ít nhất một người chơi để vẽ biểu đồ!")
+        with col_vd:
+            st.markdown("#### 🏆 BẢNG VINH DANH CHĂM CHỈ (Top 20)")
+            st.write("Xếp hạng các thành viên có tần suất tham gia đi đánh cầu nhiều nhất:")
+            if not vinh_danh_df.empty:
+                vd_display = vinh_danh_df.copy()
+                def add_medal(row):
+                    rank = row.name
+                    name = row["Thành viên"]
+                    if rank == 1:
+                        return f"🥇 {name}"
+                    elif rank == 2:
+                        return f"🥈 {name}"
+                    elif rank == 3:
+                        return f"🥉 {name}"
+                    return f"🏅 {name}"
+                vd_display["Thành viên"] = vd_display.apply(add_medal, axis=1)
+                st.table(vd_display)
+            else:
+                st.info("Chưa có dữ liệu.")
+                
+        with col_tl:
+            st.markdown("#### 🐉 BẢNG TIỀM LONG ĐÓNG GÓP (Top 20)")
+            st.write("Xếp hạng các thành viên đóng góp nhiều chi phí nhất (Sân + Cầu + Nước):")
+            if not tiem_long_df.empty:
+                tl_display = tiem_long_df.copy()
+                def add_medal_tl(row):
+                    rank = row.name
+                    name = row["Thành viên"]
+                    if rank == 1:
+                        return f"🥇 {name}"
+                    elif rank == 2:
+                        return f"🥈 {name}"
+                    elif rank == 3:
+                        return f"🥉 {name}"
+                    return f"🏅 {name}"
+                tl_display["Thành viên"] = tl_display.apply(add_medal_tl, axis=1)
+                tl_display["Tổng chi phí đã đóng (đ)"] = tl_display["Tổng chi phí đã đóng (đ)"].apply(lambda x: f"{x:,} đ")
+                st.table(tl_display)
+            else:
+                st.info("Chưa có dữ liệu.")
 
 # ---------------------------------------------------------
 # TAB 4: GOOGLE SHEETS SYNC (Requirement 6 - dedicated easy access)
