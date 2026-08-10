@@ -762,16 +762,16 @@ with tab_payment:
                     "amount": round(total_session_fee)
                 })
             
-            st.markdown("#### Bảng Tổng Hợp Công Nợ:")
+            st.markdown("#### Bảng Tổng Hợp Cần Thanh Toán:")
             debt_summary_rows = []
             for name, sessions_list in grouped_debts.items():
                 total_debt = sum(s['amount'] for s in sessions_list)
                 session_dates_str = ", ".join([s['date'] for s in sessions_list])
                 debt_summary_rows.append({
-                    "Thành viên chưa trả": name,
-                    "Số buổi nợ": len(sessions_list),
+                    "Thành viên cấn thanh toán": name,
+                    "Số buổi": len(sessions_list),
                     "Chi tiết các ngày": session_dates_str,
-                    "Tổng tiền nợ tích lũy": f"{total_debt:,} đ"
+                    "Tổng tiền cần thanh toán tích lũy": f"{total_debt:,} đ"
                 })
             st.table(pd.DataFrame(debt_summary_rows))
             
@@ -788,7 +788,7 @@ with tab_payment:
                 # Checkbox to choose payment type (Requirement 7)
                 pay_mode = st.radio(
                     "Phương thức thanh toán:",
-                    ("Thanh toán toàn bộ các buổi còn nợ", "Chỉ thanh toán buổi lẻ"),
+                    ("Thanh toán toàn bộ các buổi còn lại", "Chỉ thanh toán buổi lẻ"),
                     horizontal=True,
                     key="payment_mode_selection"
                 )
@@ -797,9 +797,9 @@ with tab_payment:
                 pay_description = ""
                 sessions_to_mark_paid = []
                 
-                if pay_mode == "Thanh toán toàn bộ các buổi còn nợ":
+                if pay_mode == "Thanh toán toàn bộ các buổi còn lại":
                     final_pay_amount = total_all_debt
-                    pay_description = f"{selected_player} thanh toan tat ca no cau long"
+                    pay_description = f"{selected_player} thanh toan tat ca"
                     sessions_to_mark_paid = [s['session_player_id'] for s in player_sessions]
                     st.info(f"👉 Bạn đang chọn thanh toán gộp **{len(player_sessions)} buổi** với tổng tiền: **{total_all_debt:,} VNĐ**")
                 else:
@@ -848,7 +848,7 @@ with tab_payment:
 # TAB 3: LEADERS & STATISTICS (BẢNG VINH DANH & TIỀM LONG)
 # ---------------------------------------------------------
 with tab_stats:
-    st.markdown("### 🏆 BẢNG VINH DANH & BẢNG TIỀM LONG (Chỉ tính các buổi Đã hoàn thành)")
+    st.markdown("### 🏆 BẢNG VINH DANH")
     
     conn = get_db_connection()
     # 1. VINH DANH: Xếp hạng theo số buổi tham gia (chỉ các buổi đã hoàn thành)
@@ -886,7 +886,7 @@ with tab_stats:
     col_lead1, col_lead2 = st.columns(2)
     
     with col_lead1:
-        st.markdown("#### 🥇 BẢNG VINH DANH (Top 20 Chăm Chỉ)")
+        st.markdown("#### 🥇 CON ONG CHĂM CHỈ")
         if not play_counts:
             st.info("Chưa có dữ liệu vinh danh.")
         else:
@@ -901,7 +901,7 @@ with tab_stats:
             st.table(pd.DataFrame(vinh_danh_data).set_index("Hạng"))
             
     with col_lead2:
-        st.markdown("#### 🐉 BẢNG TIỀM LONG (Top 20 Đóng Góp)")
+        st.markdown("#### 🐉 TIỀM LONG BẢNG")
         if not spending_map:
             st.info("Chưa có dữ liệu tiềm long.")
         else:
