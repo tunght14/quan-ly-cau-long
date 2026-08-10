@@ -158,10 +158,10 @@ def init_db():
     
     # Store dynamic water menu
     c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('water_menu', ?)", (json.dumps([
-        {"name": "Nước suối Aquafina", "price": 10000},
-        {"name": "Sting dâu", "price": 15000},
-        {"name": "Trà xanh C2", "price": 12000},
-        {"name": "Pocari Sweat", "price": 18000}
+        {"name": "Aquafina", "price": 6000},
+        {"name": "Sting", "price": 10000},
+        {"name": "Revive", "price": 8000},
+        {"name": "Revive", "price": 12000}
     ], ensure_ascii=False),))
     
     conn.commit()
@@ -445,10 +445,10 @@ else:
 # ---------------------------------------------------------
 # Added "Đồng Bộ & Sao Lưu" as a top-level Tab for extreme convenience
 tab_schedule, tab_payment, tab_stats, tab_sync, tab_config = st.tabs([
-    "📅 Lịch Đánh & Chia Tiền", 
-    "💳 Thanh Toán & Quét QR", 
-    "📊 Thống Kê Tần Suất", 
-    "🔄 Đồng Bộ & Sao Lưu (Mới)",
+    "📅 Lịch Đánh", 
+    "💳 Thanh Toán", 
+    "📊 Thống Kê", 
+    "🔄 Đồng Bộ & Sao Lưu",
     "⚙️ Cấu Hình Hệ Thống"
 ])
 
@@ -467,16 +467,16 @@ with tab_schedule:
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     session_date = st.date_input("Ngày đánh", datetime.date.today())
-                    court_no = st.text_input("Sân số mấy", "Sân số 3 & 4")
+                    court_no = st.text_input("Sân số mấy", "Sân số 9")
                 with col2:
-                    start_t = st.selectbox("Từ mấy giờ", TIME_OPTIONS, index=TIME_OPTIONS.index("18:00") if "18:00" in TIME_OPTIONS else 0)
-                    end_t = st.selectbox("Đến mấy giờ", TIME_OPTIONS, index=TIME_OPTIONS.index("20:00") if "20:00" in TIME_OPTIONS else 0)
+                    start_t = st.selectbox("Từ mấy giờ", TIME_OPTIONS, index=TIME_OPTIONS.index("19:00") if "19:00" in TIME_OPTIONS else 0)
+                    end_t = st.selectbox("Đến mấy giờ", TIME_OPTIONS, index=TIME_OPTIONS.index("21:00") if "21:00" in TIME_OPTIONS else 0)
                 with col3:
-                    location = st.text_input("Địa điểm", "Sân Cầu Lông Kỳ Hòa")
+                    location = st.text_input("Địa điểm", "Phúc Long - 27 Lê Văn Lương")
                 
                 players_input = st.text_area("Danh sách thành viên đăng ký (Dự kiến)", 
-                                             value="Tùng, Nghiệp, Huy, Hoàng", 
-                                             help="Nhập tên các thành viên, cách nhau bằng dấu phẩy (ví dụ: Tùng, Nghiệp, Huy, Hoàng)")
+                                             value="Tùng, Nghiệp, Huy, Trường, Mạnh, Hải", 
+                                             help="Nhập tên các thành viên, cách nhau bằng dấu phẩy (ví dụ: Tùng, Nghiệp, Huy, Mạnh)")
                 
                 submitted = st.form_submit_button("Tạo Buổi Đánh")
                 if submitted:
