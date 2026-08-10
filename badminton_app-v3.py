@@ -61,7 +61,6 @@ def format_for_sheets(val):
     except Exception:
         return str(val)
 
-# Database coefficients auto-sanitizer on startup
 def sanitize_database_coefficients():
     try:
         conn = get_db_connection()
@@ -78,25 +77,6 @@ def sanitize_database_coefficients():
     except Exception as e:
         pass
 
-# Auto-sync helper
-@st.cache_resource
-def auto_sync_on_startup():
-    if "gcs" in st.secrets and "spreadsheet_url" in st.secrets:
-        try:
-            conn = get_db_connection()
-            c = conn.cursor()
-            c.execute("SELECT COUNT(*) FROM sessions")
-            session_count = c.fetchone()[0]
-            conn.close()
-            if session_count == 0:
-                success, msg = sync_from_google_sheets()
-                if success:
-                    return "Đã tự động tải dữ liệu đồng bộ từ Google Sheets!"
-                else:
-                    return f"Lỗi tự động đồng bộ: {msg}"
-        except Exception as e:
-            return f"Lỗi kết nối khởi chạy: {str(e)}"
-    return ""
 
 # ---------------------------------------------------------
 # CONSTANTS & CONFIG
@@ -152,23 +132,22 @@ def init_db():
     """)
     # Set default config
     c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('admin_password', ?)", (DEFAULT_ADMIN_PASS,))
-    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_code', 'TECHCOM,BANK')")
-    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_acc', '863366668888')")
-    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_owner', 'HOANG THANH TUNG')")
+    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_code', '')")
+    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_acc', '')")
+    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_owner', '')")
     
     # Store dynamic water menu
     c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('water_menu', ?)", (json.dumps([
-        {"name": "Aquafina", "price": 6000},
-        {"name": "Sting", "price": 10000},
-        {"name": "Revive", "price": 8000},
-        {"name": "Revive", "price": 12000}
+        {"name": "Nước suối Aquafina", "price": 10000},
+        {"name": "Sting dâu", "price": 15000},
+        {"name": "Trà xanh C2", "price": 12000},
+        {"name": "Pocari Sweat", "price": 18000}
     ], ensure_ascii=False),))
     
     conn.commit()
     conn.close()
 
 init_db()
-
 sanitize_database_coefficients()
 
 # ---------------------------------------------------------
@@ -285,17 +264,21 @@ def sync_to_google_sheets():
         sessions_df = sessions_df.fillna('')
         players_df = players_df.fillna('')
         
-        # Format columns appropriately using custom locale formatter
+        # Format columns appropriately using format_for_sheets before astype(str)
+        if not sessions_df.empty:
+            for col in ['total_court_fee', 'total_shuttle_fee']:
+                if col in sessions_df.columns:
+                    sessions_df[col] = sessions_df[col].apply(format_for_sheets)
+        if not players_df.empty:
+            for col in ['coefficient', 'water_fee']:
+                if col in players_df.columns:
+                    players_df[col] = players_df[col].apply(format_for_sheets)
+                    
+        # Convert all to strings or safe numbers to avoid GSpread upload issues
         for col in sessions_df.columns:
-            if col in ['total_court_fee', 'total_shuttle_fee']:
-                sessions_df[col] = sessions_df[col].apply(format_for_sheets)
-            else:
-                sessions_df[col] = sessions_df[col].astype(str)
+            sessions_df[col] = sessions_df[col].astype(str)
         for col in players_df.columns:
-            if col in ['coefficient', 'water_fee']:
-                players_df[col] = players_df[col].apply(format_for_sheets)
-            else:
-                players_df[col] = players_df[col].astype(str)
+            players_df[col] = players_df[col].astype(str)
             
         try:
             ws_sessions = sh.worksheet("Sessions")
@@ -387,14 +370,7 @@ for h in range(5, 24):
 # ---------------------------------------------------------
 # MAIN INTERFACE STYLE
 # ---------------------------------------------------------
-
-# Auto-sync on startup
-auto_sync_msg = auto_sync_on_startup()
-
-st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>🏸 SUNDAY SMASH CLUB 🏸</h1><p style='text-align: center; font-style: italic; color: #555;'>Đam mê - Sòng phẳng - Đoàn kết</p>", unsafe_allow_html=True)
-if auto_sync_msg:
-    st.info(f"💡 {auto_sync_msg}")
-
+st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🏸 SÂN CẦU LÔNG - Host & Chia Tiền</h1>", unsafe_allow_html=True)
 st.write("---")
 
 # Admin Authentication via Sidebar
@@ -445,10 +421,10 @@ else:
 # ---------------------------------------------------------
 # Added "Đồng Bộ & Sao Lưu" as a top-level Tab for extreme convenience
 tab_schedule, tab_payment, tab_stats, tab_sync, tab_config = st.tabs([
-    "📅 Lịch Đánh", 
-    "💳 Thanh Toán", 
-    "📊 Thống Kê", 
-    "🔄 Đồng Bộ & Sao Lưu",
+    "📅 Lịch Đánh & Chia Tiền", 
+    "💳 Thanh Toán & Quét QR", 
+    "📊 Thống Kê Tần Suất", 
+    "🔄 Đồng Bộ & Sao Lưu (Mới)",
     "⚙️ Cấu Hình Hệ Thống"
 ])
 
@@ -467,16 +443,16 @@ with tab_schedule:
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     session_date = st.date_input("Ngày đánh", datetime.date.today())
-                    court_no = st.text_input("Sân số mấy", "Sân số 9")
+                    court_no = st.text_input("Sân số mấy", "Sân số 3 & 4")
                 with col2:
-                    start_t = st.selectbox("Từ mấy giờ", TIME_OPTIONS, index=TIME_OPTIONS.index("19:00") if "19:00" in TIME_OPTIONS else 0)
-                    end_t = st.selectbox("Đến mấy giờ", TIME_OPTIONS, index=TIME_OPTIONS.index("21:00") if "21:00" in TIME_OPTIONS else 0)
+                    start_t = st.selectbox("Từ mấy giờ", TIME_OPTIONS, index=TIME_OPTIONS.index("18:00") if "18:00" in TIME_OPTIONS else 0)
+                    end_t = st.selectbox("Đến mấy giờ", TIME_OPTIONS, index=TIME_OPTIONS.index("20:00") if "20:00" in TIME_OPTIONS else 0)
                 with col3:
-                    location = st.text_input("Địa điểm", "Phúc Long - 27 Lê Văn Lương")
+                    location = st.text_input("Địa điểm", "Sân Cầu Lông Kỳ Hòa")
                 
                 players_input = st.text_area("Danh sách thành viên đăng ký (Dự kiến)", 
-                                             value="Tùng, Nghiệp, Huy, Trường, Mạnh, Hải", 
-                                             help="Nhập tên các thành viên, cách nhau bằng dấu phẩy (ví dụ: Tùng, Nghiệp, Huy, Mạnh)")
+                                             value="Tùng, Nghiệp, Huy, Hoàng", 
+                                             help="Nhập tên các thành viên, cách nhau bằng dấu phẩy (ví dụ: Tùng, Nghiệp, Huy, Hoàng)")
                 
                 submitted = st.form_submit_button("Tạo Buổi Đánh")
                 if submitted:
@@ -513,11 +489,10 @@ with tab_schedule:
             
             player_names = [p['player_name'] for p in players]
             
-            # Badge and status color with emoji prefixes
-            status_prefix = "🟡 [DỰ KIẾN]" if sess['status'] == 'Dự kiến' else "🟢 [HOÀN THÀNH]"
-            status_color = "#EAB308" if sess['status'] == 'Dự kiến' else "#22C55E"
-            
-            st.markdown(f"### <span style='color:{status_color};'>{status_prefix}</span> 📅 Buổi đánh {sess['date']} tại {sess['location']} ({sess['start_time']} - {sess['end_time']})", unsafe_allow_html=True)
+            # Badge for status
+            status_color = "orange" if sess['status'] == 'Dự kiến' else "green"
+            st.markdown(f"### 🏸 Buổi đánh ngày {sess['date']} tại {sess['location']} ({sess['start_time']} - {sess['end_time']}) "
+                        f" <span style='background-color:{status_color};color:white;padding:3px 8px;border-radius:5px;font-size:14px;'>{sess['status']}</span>", unsafe_allow_html=True)
             
             st.markdown(f"**Sân số:** {sess['court_no']} | **Người tham gia ({len(players)}):** {', '.join(player_names)}")
             
@@ -573,9 +548,9 @@ with tab_schedule:
                         with st.form(f"calc_fee_form_{sess_id}"):
                             col_f1, col_f2 = st.columns(2)
                             with col_f1:
-                                court_fee = st.number_input("Tiền sân (VND)", min_value=0.0, value=safe_float(sess['total_court_fee']), step=10000.0, key=f"court_fee_{sess_id}")
+                                court_fee = st.number_input("Tiền sân (VND)", min_value=0.0, value=float(sess['total_court_fee']), step=10000.0, key=f"court_fee_{sess_id}")
                             with col_f2:
-                                shuttle_fee = st.number_input("Tiền cầu (VND)", min_value=0.0, value=safe_float(sess['total_shuttle_fee']), step=5000.0, key=f"shuttle_fee_{sess_id}")
+                                shuttle_fee = st.number_input("Tiền cầu (VND)", min_value=0.0, value=float(sess['total_shuttle_fee']), step=5000.0, key=f"shuttle_fee_{sess_id}")
                             
                             st.markdown("---")
                             st.markdown("#### 👥 Điền Hệ Số & Nước Uống Gộp Cho Tất Cả Thành Viên (Nhấn Cập Nhật 1 Lần Ở Dưới Cùng)")
@@ -598,7 +573,7 @@ with tab_schedule:
                                 col_p1, col_p2, col_p3, col_p4 = st.columns([1.5, 3.5, 1.5, 1.5])
                                 
                                 with col_p1:
-                                    coeff = st.number_input("Hệ số chia tiền", min_value=0.0, max_value=2.0, value=clean_coefficient(pl['coefficient']), step=0.05, key=f"coeff_{p_id}")
+                                    coeff = st.number_input("Hệ số chia tiền", min_value=0.0, max_value=2.0, value=clean_coefficient(pl['coefficient']), step=0.05, key=f"coeff_{sess_id}_{p_id}")
                                 
                                 with col_p2:
                                     # Water checkboxes and quantity
@@ -619,7 +594,7 @@ with tab_schedule:
                                             qty = old_detail.get(item_name, 0)
                                             # Compact label
                                             short_name = item_name.replace("Nước suối ", "").replace(" dâu", "")
-                                            new_qty = st.number_input(f"{short_name} ({item_price:,}đ)", min_value=0, max_value=10, value=int(qty), key=f"water_{p_id}_{item_name}")
+                                            new_qty = st.number_input(f"{short_name} ({item_price:,}đ)", min_value=0, max_value=10, value=int(qty), key=f"water_{sess_id}_{p_id}_{item_name}")
                                             if new_qty > 0:
                                                 selected_water.append((item_name, new_qty, item_price))
                                             
@@ -635,7 +610,7 @@ with tab_schedule:
                                     # Changed texts from "Đã trả / Chưa trả" to "Đã thanh toán / Chưa thanh toán" (Requirement 3)
                                     pay_status = st.selectbox("Trạng thái", ["Chưa thanh toán", "Đã thanh toán"], 
                                                               index=0 if pl['payment_status'] == 'Chưa thanh toán' else 1, 
-                                                              key=f"pay_status_{p_id}")
+                                                              key=f"pay_status_{sess_id}_{p_id}")
                                     
                                 updated_players_data.append({
                                     "id": p_id,
@@ -666,7 +641,7 @@ with tab_schedule:
 
                 # Calculate calculations for display (BOTH for admin and user)
                 total_court_shuttle = sess['total_court_fee'] + sess['total_shuttle_fee']
-                total_coef = sum(clean_coefficient(p['coefficient']) for p in players)
+                total_coef = sum(p['coefficient'] for p in players)
                 
                 # Single Coefficient Value
                 coef_unit_value = total_court_shuttle / total_coef if total_coef > 0 else 0
@@ -674,7 +649,7 @@ with tab_schedule:
                 # Calculation DataFrame
                 calc_rows = []
                 for pl in players:
-                    court_shuttle_share = coef_unit_value * clean_coefficient(pl['coefficient'])
+                    court_shuttle_share = coef_unit_value * pl['coefficient']
                     total_p_fee = court_shuttle_share + pl['water_fee']
                     
                     # Read water detail readable
@@ -688,7 +663,7 @@ with tab_schedule:
                     
                     calc_rows.append({
                         "Thành viên": pl['player_name'],
-                        "Hệ số": clean_coefficient(pl['coefficient']),
+                        "Hệ số": pl['coefficient'],
                         "Tiền Sân & Cầu": f"{round(court_shuttle_share):,} đ",
                         "Nước uống đã gọi": w_det if w_det else "Không uống nước",
                         "Tiền nước": f"{int(pl['water_fee']):,} đ",
@@ -749,7 +724,7 @@ with tab_payment:
                 t_court_shuttle = row['total_court_fee'] + row['total_shuttle_fee']
                 t_coef = row['total_coef']
                 coef_val = t_court_shuttle / t_coef if t_coef > 0 else 0
-                share = coef_val * clean_coefficient(row['coefficient'])
+                share = coef_val * row['coefficient']
                 total_session_fee = share + row['water_fee']
                 
                 if p_name not in grouped_debts:
@@ -762,16 +737,16 @@ with tab_payment:
                     "amount": round(total_session_fee)
                 })
             
-            st.markdown("#### Bảng Tổng Hợp Cần Thanh Toán:")
+            st.markdown("#### Bảng Tổng Hợp Công Nợ:")
             debt_summary_rows = []
             for name, sessions_list in grouped_debts.items():
                 total_debt = sum(s['amount'] for s in sessions_list)
                 session_dates_str = ", ".join([s['date'] for s in sessions_list])
                 debt_summary_rows.append({
-                    "Thành viên cấn thanh toán": name,
-                    "Số buổi": len(sessions_list),
+                    "Thành viên chưa trả": name,
+                    "Số buổi nợ": len(sessions_list),
                     "Chi tiết các ngày": session_dates_str,
-                    "Tổng tiền cần thanh toán tích lũy": f"{total_debt:,} đ"
+                    "Tổng tiền nợ tích lũy": f"{total_debt:,} đ"
                 })
             st.table(pd.DataFrame(debt_summary_rows))
             
@@ -788,7 +763,7 @@ with tab_payment:
                 # Checkbox to choose payment type (Requirement 7)
                 pay_mode = st.radio(
                     "Phương thức thanh toán:",
-                    ("Thanh toán toàn bộ các buổi còn lại", "Chỉ thanh toán buổi lẻ"),
+                    ("Thanh toán toàn bộ các buổi còn nợ", "Chỉ thanh toán buổi lẻ"),
                     horizontal=True,
                     key="payment_mode_selection"
                 )
@@ -797,9 +772,9 @@ with tab_payment:
                 pay_description = ""
                 sessions_to_mark_paid = []
                 
-                if pay_mode == "Thanh toán toàn bộ các buổi còn lại":
+                if pay_mode == "Thanh toán toàn bộ các buổi còn nợ":
                     final_pay_amount = total_all_debt
-                    pay_description = f"{selected_player} thanh toan tat ca"
+                    pay_description = f"{selected_player} thanh toan tat ca no cau long"
                     sessions_to_mark_paid = [s['session_player_id'] for s in player_sessions]
                     st.info(f"👉 Bạn đang chọn thanh toán gộp **{len(player_sessions)} buổi** với tổng tiền: **{total_all_debt:,} VNĐ**")
                 else:
@@ -845,76 +820,51 @@ with tab_payment:
                             st.rerun()
 
 # ---------------------------------------------------------
-# TAB 3: LEADERS & STATISTICS (BẢNG VINH DANH & TIỀM LONG)
+# TAB 3: STATS CHART (With Filter - Requirement 5)
 # ---------------------------------------------------------
 with tab_stats:
-    st.markdown("### 🏆 BẢNG VINH DANH")
+    st.markdown("### 📊 Thống Kê Số Buổi Đi Đánh Cầu")
     
     conn = get_db_connection()
-    # 1. VINH DANH: Xếp hạng theo số buổi tham gia (chỉ các buổi đã hoàn thành)
+    # Get play count of all completed sessions
     play_counts = conn.execute("""
-        SELECT player_name, COUNT(session_id) as matches_played
-        FROM session_players
-        WHERE payment_status != '' AND session_id IN (SELECT id FROM sessions WHERE status = 'Đã hoàn thành')
-        GROUP BY player_name
-        ORDER BY matches_played DESC
-    """).fetchall()
-    
-    # 2. TIỀM LONG: Xếp hạng theo tổng số tiền tham gia (sân + cầu + nước)
-    sessions_completed = conn.execute("SELECT * FROM sessions WHERE status = 'Đã hoàn thành'").fetchall()
-    players_completed = conn.execute("""
-        SELECT sp.*, s.total_court_fee, s.total_shuttle_fee,
-               (SELECT SUM(coefficient) FROM session_players WHERE session_id = s.id) as total_coef
+        SELECT sp.player_name, COUNT(sp.session_id) as matches_played
         FROM session_players sp
         JOIN sessions s ON sp.session_id = s.id
         WHERE s.status = 'Đã hoàn thành'
+        GROUP BY sp.player_name
+        ORDER BY matches_played DESC
     """).fetchall()
     conn.close()
     
-    # Calculate total spending per player
-    spending_map = {}
-    for row in players_completed:
-        p_name = row['player_name']
-        t_court_shuttle = row['total_court_fee'] + row['total_shuttle_fee']
-        t_coef = row['total_coef']
-        coef_val = t_court_shuttle / t_coef if t_coef > 0 else 0
-        share = coef_val * clean_coefficient(row['coefficient'])
-        total_p_fee = share + safe_float(row['water_fee'])
+    if not play_counts:
+        st.info("Chưa có trận đấu đã hoàn thành để thống kê biểu đồ.")
+    else:
+        # Convert to pandas
+        stats_df = pd.DataFrame([dict(row) for row in play_counts])
         
-        spending_map[p_name] = spending_map.get(p_name, 0) + total_p_fee
+        # 5. Filter option (Cho chọn lọc người chơi để bỏ bớt vãng lai)
+        all_players_list = stats_df['player_name'].tolist()
         
-    col_lead1, col_lead2 = st.columns(2)
-    
-    with col_lead1:
-        st.markdown("#### 🥇 CON ONG CHĂM CHỈ")
-        if not play_counts:
-            st.info("Chưa có dữ liệu vinh danh.")
-        else:
-            vinh_danh_data = []
-            for idx, r in enumerate(play_counts[:20]):
-                rank_icon = "🥇" if idx == 0 else "🥈" if idx == 1 else "🥉" if idx == 2 else f" {idx+1} "
-                vinh_danh_data.append({
-                    "Hạng": rank_icon,
-                    "Thành viên": r['player_name'],
-                    "Số buổi tham gia": f"{r['matches_played']} buổi"
-                })
-            st.table(pd.DataFrame(vinh_danh_data).set_index("Hạng"))
+        # Filter: by default select those who played more than once, but allow selecting everyone
+        selected_players_for_chart = st.multiselect(
+            "🎯 Chọn các thành viên muốn hiển thị trên biểu đồ (Hủy chọn các thành viên vãng lai ít tham gia):",
+            options=all_players_list,
+            default=all_players_list
+        )
+        
+        if selected_players_for_chart:
+            filtered_df = stats_df[stats_df['player_name'].isin(selected_players_for_chart)]
             
-    with col_lead2:
-        st.markdown("#### 🐉 TIỀM LONG BẢNG")
-        if not spending_map:
-            st.info("Chưa có dữ liệu tiềm long.")
+            # Simple Column Chart
+            st.write("📈 **Biểu đồ số trận đã tham gia:**")
+            st.bar_chart(filtered_df.set_index('player_name'))
+            
+            # Show table below
+            st.markdown("#### Bảng tần suất chơi:")
+            st.table(filtered_df.rename(columns={"player_name": "Tên Người Chơi", "matches_played": "Số Buổi Tham Gia"}))
         else:
-            sorted_spending = sorted(spending_map.items(), key=lambda x: x[1], reverse=True)[:20]
-            tiem_long_data = []
-            for idx, (name, amount) in enumerate(sorted_spending):
-                rank_icon = "🥇" if idx == 0 else "🥈" if idx == 1 else "🥉" if idx == 2 else f" {idx+1} "
-                tiem_long_data.append({
-                    "Hạng": rank_icon,
-                    "Thành viên": name,
-                    "Tổng chi phí": f"{round(amount):,} đ"
-                })
-            st.table(pd.DataFrame(tiem_long_data).set_index("Hạng"))
+            st.warning("Vui lòng chọn ít nhất một người chơi để vẽ biểu đồ!")
 
 # ---------------------------------------------------------
 # TAB 4: GOOGLE SHEETS SYNC (Requirement 6 - dedicated easy access)
@@ -1015,8 +965,8 @@ with tab_sync:
                                     row.get('id'), row.get('date'), str(row.get('court_no')), row.get('location'),
                                     row.get('start_time'), row.get('end_time'), row.get('status'),
                                     row.get('players_text', ''),
-                                    safe_float(row.get('total_court_fee', 0.0)),
-                                    safe_float(row.get('total_shuttle_fee', 0.0))
+                                    float(row.get('total_court_fee', 0) if row.get('total_court_fee') != '' else 0),
+                                    float(row.get('total_shuttle_fee', 0) if row.get('total_shuttle_fee') != '' else 0)
                                 ))
                                 
                             for row in import_data["session_players"]:
@@ -1025,8 +975,8 @@ with tab_sync:
                                 VALUES (?, ?, ?, ?, ?, ?, ?)
                                 """, (
                                     row.get('id'), row.get('session_id'), str(row.get('player_name')),
-                                    clean_coefficient(row.get('coefficient')),
-                                    safe_float(row.get('water_fee', 0.0)),
+                                    float(row.get('coefficient', 1.0) if row.get('coefficient') != '' else 1.0),
+                                    float(row.get('water_fee', 0.0) if row.get('water_fee') != '' else 0.0),
                                     str(row.get('water_detail', '')),
                                     str(row.get('payment_status', 'Chưa thanh toán'))
                                 ))
