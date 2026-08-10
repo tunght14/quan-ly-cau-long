@@ -152,9 +152,9 @@ def init_db():
     """)
     # Set default config
     c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('admin_password', ?)", (DEFAULT_ADMIN_PASS,))
-    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_code', '')")
-    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_acc', '')")
-    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_owner', '')")
+    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_code', 'TECHCOM,BANK')")
+    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_acc', '863366668888')")
+    c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('bank_owner', 'HOANG THANH TUNG')")
     
     # Store dynamic water menu
     c.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('water_menu', ?)", (json.dumps([
